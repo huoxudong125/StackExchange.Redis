@@ -9,6 +9,8 @@ namespace StackExchange.Redis.Tests
     public class TaskTests
     {
 #if DEBUG
+
+#if !PLAT_SAFE_CONTINUATIONS // IsSyncSafe doesn't exist if PLAT_SAFE_CONTINUATIONS is defined
         [Test]
         [TestCase(SourceOrign.NewTCS, false)]
         [TestCase(SourceOrign.Create, false)]
@@ -18,7 +20,7 @@ namespace StackExchange.Redis.Tests
             var source = Create<int>(origin);
             Assert.AreEqual(expected, TaskSource.IsSyncSafe(source.Task));
         }
-
+#endif
         static TaskCompletionSource<T> Create<T>(SourceOrign origin)
         {
             switch (origin)
@@ -26,7 +28,7 @@ namespace StackExchange.Redis.Tests
                 case SourceOrign.NewTCS: return new TaskCompletionSource<T>();
                 case SourceOrign.Create: return TaskSource.Create<T>(null);
                 case SourceOrign.CreateDenyExec: return TaskSource.CreateDenyExecSync<T>(null);
-                default: throw new ArgumentOutOfRangeException("origin");
+                default: throw new ArgumentOutOfRangeException(nameof(origin));
             }
         }
         [Test]
@@ -76,7 +78,7 @@ namespace StackExchange.Redis.Tests
         }
         class AwaitState
         {
-            public int Thread { get { return continuationThread; } }
+            public int Thread => continuationThread;
             volatile int continuationThread = -1;
             private ManualResetEventSlim evt = new ManualResetEventSlim();
             public void Wait()
@@ -97,7 +99,7 @@ namespace StackExchange.Redis.Tests
                         DoAwait(task);
                         break;
                     default:
-                        throw new ArgumentOutOfRangeException("attachMode");
+                        throw new ArgumentOutOfRangeException(nameof(attachMode));
                 }
             }
             private void Continue(Task task)
@@ -107,7 +109,7 @@ namespace StackExchange.Redis.Tests
             }
             private async void DoAwait(Task task)
             {
-                await task;
+                await task.ConfigureAwait(false);
                 continuationThread = Environment.CurrentManagedThreadId;
                 evt.Set();
             }
